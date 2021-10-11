@@ -3,6 +3,11 @@
 #include <libraries/delay/nrf_delay.h>
 #include <nrfx_log.h>
 #include "Spi.h"
+#include "SEGGER_RTT.h"
+
+#ifndef min
+#define min(a, b) ((a)<(b)?(a):(b))
+#endif
 
 using namespace Pinetime::Drivers;
 
@@ -28,6 +33,7 @@ void St7789::Init() {
 
 void St7789::WriteCommand(uint8_t cmd) {
   nrf_gpio_pin_clear(pinDataCommand);
+  SEGGER_RTT_printf(0, "STCMD,%x\r\n", cmd);
   WriteSpi(&cmd, 1);
 }
 
@@ -35,9 +41,18 @@ void St7789::WriteData(uint8_t data) {
   nrf_gpio_pin_set(pinDataCommand);
   WriteSpi(&data, 1);
 }
-
 void St7789::WriteSpi(const uint8_t* data, size_t size) {
-  spi.Write(data, size);
+
+    if( size > 10 ) {
+      vPortEnterCritical();
+      SEGGER_RTT_LOCK();
+      SEGGER_RTT_printf(0, "SCRDATA,%d\r\n", size);
+      size_t written = SEGGER_RTT_Write(0, data, size);
+      SEGGER_RTT_printf(0, "\r\n", written);
+      vPortExitCritical();
+      SEGGER_RTT_UNLOCK();
+    }
+//    spi.Write(data, 1);
 }
 
 void St7789::SoftwareReset() {
@@ -107,6 +122,8 @@ void St7789::SetAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
   WriteData(y1 >> 8);
   WriteData(y1 & 0xff);
 
+  SEGGER_RTT_printf(0,"WINDOW,%d,%d,%d,%d\r\n", x0, y0, x1, y1);
+
   WriteToRam();
 }
 
@@ -131,6 +148,7 @@ void St7789::VerticalScrollDefinition(uint16_t topFixedLines, uint16_t scrollLin
 
 void St7789::VerticalScrollStartAddress(uint16_t line) {
   verticalScrollingStartAddress = line;
+  SEGGER_RTT_printf(0, "VSP,%u\r\n", line);
   WriteCommand(static_cast<uint8_t>(Commands::VerticalScrollStartAddress));
   WriteData(line >> 8u);
   WriteData(line & 0x00ffu);
