@@ -3,7 +3,7 @@
 #include <legacy/nrf_drv_gpiote.h>
 #include <nrfx_log.h>
 #include <task.h>
-#include "drivers/PinMap.h"
+#include <SEGGER_RTT.h>
 
 using namespace Pinetime::Drivers;
 
@@ -15,32 +15,31 @@ using namespace Pinetime::Drivers;
  * TODO : we need a complete datasheet and protocol reference!
  * */
 
-Cst816S::Cst816S(TwiMaster& twiMaster, uint8_t twiAddress) : twiMaster {twiMaster}, twiAddress {twiAddress} {
-}
+Cst816S::Cst816S() {}
 
 void Cst816S::Init() {
-  nrf_gpio_cfg_output(PinMap::Cst816sReset);
-  nrf_gpio_pin_set(PinMap::Cst816sReset);
-  vTaskDelay(50);
-  nrf_gpio_pin_clear(PinMap::Cst816sReset);
-  vTaskDelay(5);
-  nrf_gpio_pin_set(PinMap::Cst816sReset);
-  vTaskDelay(50);
+//  nrf_gpio_cfg_output(PinMap::Cst816sReset);
+//  nrf_gpio_pin_set(PinMap::Cst816sReset);
+//  vTaskDelay(50);
+//  nrf_gpio_pin_clear(PinMap::Cst816sReset);
+//  vTaskDelay(5);
+//  nrf_gpio_pin_set(PinMap::Cst816sReset);
+//  vTaskDelay(50);
 
   // Wake the touchpanel up
-  uint8_t dummy;
-  twiMaster.Read(twiAddress, 0x15, &dummy, 1);
-  vTaskDelay(5);
-  twiMaster.Read(twiAddress, 0xa7, &dummy, 1);
-  vTaskDelay(5);
+//  uint8_t dummy;
+//  twiMaster.Read(twiAddress, 0x15, &dummy, 1);
+//  vTaskDelay(5);
+//  twiMaster.Read(twiAddress, 0xa7, &dummy, 1);
+//  vTaskDelay(5);
 
   /*
   [2] EnConLR - Continuous operation can slide around
   [1] EnConUD - Slide up and down to enable continuous operation
   [0] EnDClick - Enable Double-click action
   */
-  static constexpr uint8_t motionMask = 0b00000101;
-  twiMaster.Write(twiAddress, 0xEC, &motionMask, 1);
+//  static constexpr uint8_t motionMask = 0b00000101;
+//  twiMaster.Write(twiAddress, 0xEC, &motionMask, 1);
 
   /*
   [7] EnTest - Interrupt pin to test, enable automatic periodic issued after a low pulse.
@@ -49,44 +48,39 @@ void Cst816S::Init() {
   [4] EnMotion - When the detected gesture is pulsed Low.
   [0] OnceWLP - Press gesture only issue a pulse signal is low.
   */
-  static constexpr uint8_t irqCtl = 0b01110000;
-  twiMaster.Write(twiAddress, 0xFA, &irqCtl, 1);
+//  static constexpr uint8_t irqCtl = 0b01110000;
+//  twiMaster.Write(twiAddress, 0xFA, &irqCtl, 1);
+}
+
+void Cst816S::RecvTouchInfo(bool touching){
+
+  uint8_t buf[3];
+  size_t bytes_read = SEGGER_RTT_Read(0, buf, 3);
+  if (bytes_read != 3){
+    info.isValid = false;
+    return;
+  }
+
+//  info.gesture = static_cast<Gestures>(touchData[gestureIndex]);
+  info.gesture = static_cast<Gestures>((buf[0] >> 1));
+  info.touching = touching;
+
+  info.x = buf[1];//<<4;
+  info.y = buf[2];//<<4;
+  SEGGER_RTT_printf(0, "recvd %u: x=%u, y=%u, g=%u\r\n", info.touching, info.x, info.y, info.gesture);
 }
 
 Cst816S::TouchInfos Cst816S::GetTouchInfo() {
-  Cst816S::TouchInfos info;
-
-  auto ret = twiMaster.Read(twiAddress, 0, touchData, sizeof(touchData));
-  if (ret != TwiMaster::ErrorCodes::NoError) {
-    info.isValid = false;
-    return info;
-  }
-
-  auto nbTouchPoints = touchData[2] & 0x0f;
-
-  auto xHigh = touchData[touchXHighIndex] & 0x0f;
-  auto xLow = touchData[touchXLowIndex];
-  uint16_t x = (xHigh << 8) | xLow;
-
-  auto yHigh = touchData[touchYHighIndex] & 0x0f;
-  auto yLow = touchData[touchYLowIndex];
-  uint16_t y = (yHigh << 8) | yLow;
-
-  info.x = x;
-  info.y = y;
-  info.touching = (nbTouchPoints > 0);
-  info.gesture = static_cast<Gestures>(touchData[gestureIndex]);
-
   return info;
 }
 
 void Cst816S::Sleep() {
-  nrf_gpio_pin_clear(PinMap::Cst816sReset);
-  vTaskDelay(5);
-  nrf_gpio_pin_set(PinMap::Cst816sReset);
-  vTaskDelay(50);
+//  nrf_gpio_pin_clear(PinMap::Cst816sReset);
+//  vTaskDelay(5);
+//  nrf_gpio_pin_set(PinMap::Cst816sReset);
+//  vTaskDelay(50);
   static constexpr uint8_t sleepValue = 0x03;
-  twiMaster.Write(twiAddress, 0xA5, &sleepValue, 1);
+//  twiMaster.Write(twiAddress, 0xA5, &sleepValue, 1);
   NRF_LOG_INFO("[TOUCHPANEL] Sleep");
 }
 

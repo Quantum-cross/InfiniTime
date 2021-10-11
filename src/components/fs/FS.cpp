@@ -36,13 +36,13 @@ void FS::Init() {
 
   // reformat if we can't mount the filesystem
   // this should only happen on the first boot
-  if (err != LFS_ERR_OK) {
-    lfs_format(&lfs, &lfsConfig);
-    err = lfs_mount(&lfs, &lfsConfig);
-    if (err != LFS_ERR_OK) {
-      return;
-    }
-  }
+//  if (err != LFS_ERR_OK) {
+//    lfs_format(&lfs, &lfsConfig);
+//    err = lfs_mount(&lfs, &lfsConfig);
+//    if (err != LFS_ERR_OK) {
+//      return;
+//    }
+//  }
 
 #ifndef PINETIME_IS_RECOVERY
   VerifyResource();

@@ -9,6 +9,7 @@
 #undef max
 #undef min
 #include <hal/nrf_rtc.h>
+#include <hal/nrf_gpio.h>
 #include <libraries/gpiote/app_gpiote.h>
 #include <libraries/log/nrf_log.h>
 
@@ -26,6 +27,7 @@
 
 
 #include <memory>
+#include <SEGGER_RTT.h>
 
 using namespace Pinetime::System;
 
@@ -118,16 +120,16 @@ void SystemTask::Process(void* instance) {
 void SystemTask::Work() {
   watchdog.Setup(7);
   watchdog.Start();
-  NRF_LOG_INFO("Last reset reason : %s", Pinetime::Drivers::Watchdog::ResetReasonToString(watchdog.ResetReason()));
+//  NRF_LOG_INFO("Last reset reason : %s", Pinetime::Drivers::Watchdog::ResetReasonToString(watchdog.ResetReason()));
   APP_GPIOTE_INIT(2);
 
   app_timer_init();
 
   spi.Init();
-  spiNorFlash.Init();
-  spiNorFlash.Wakeup();
+//  spiNorFlash.Init();
+//  spiNorFlash.Wakeup();
 
-  fs.Init();
+//  fs.Init();
 
   nimbleController.Init();
   lcd.Init();
@@ -138,7 +140,7 @@ void SystemTask::Work() {
   batteryController.Register(this);
   batteryController.Update();
   motorController.Init();
-  motionSensor.SoftReset();
+//  motionSensor.SoftReset();
   timerController.Register(this);
   timerController.Init();
   alarmController.Init(this);
@@ -147,8 +149,8 @@ void SystemTask::Work() {
   twiMaster.Sleep();
   twiMaster.Init();
 
-  motionSensor.Init();
-  motionController.Init(motionSensor.DeviceType());
+//  motionSensor.Init();
+//  motionController.Init(motionSensor.DeviceType());
   settingsController.Init();
 
   displayApp.Register(this);
@@ -158,7 +160,7 @@ void SystemTask::Work() {
   heartRateSensor.Disable();
   heartRateApp.Start();
 
-  nrf_gpio_cfg_sense_input(PinMap::Button, (nrf_gpio_pin_pull_t) GPIO_PIN_CNF_PULL_Pulldown, (nrf_gpio_pin_sense_t) GPIO_PIN_CNF_SENSE_High);
+  nrf_gpio_cfg_sense_input(PinMap::Button, static_cast<nrf_gpio_pin_pull_t>GPIO_PIN_CNF_PULL_Pullup, static_cast<nrf_gpio_pin_sense_t>GPIO_PIN_CNF_SENSE_Low);
   nrf_gpio_cfg_output(15);
   nrf_gpio_pin_set(15);
 
@@ -167,7 +169,7 @@ void SystemTask::Work() {
   pinConfig.hi_accuracy = false;
   pinConfig.is_watcher = false;
   pinConfig.sense = (nrf_gpiote_polarity_t) NRF_GPIOTE_POLARITY_HITOLO;
-  pinConfig.pull = (nrf_gpio_pin_pull_t) GPIO_PIN_CNF_PULL_Pulldown;
+  pinConfig.pull = (nrf_gpio_pin_pull_t) GPIO_PIN_CNF_PULL_Pullup;
 
   nrfx_gpiote_in_init(PinMap::Button, &pinConfig, nrfx_gpiote_evt_handler);
 
@@ -176,7 +178,7 @@ void SystemTask::Work() {
   pinConfig.skip_gpio_setup = true;
   pinConfig.hi_accuracy = false;
   pinConfig.is_watcher = false;
-  pinConfig.sense = (nrf_gpiote_polarity_t) NRF_GPIOTE_POLARITY_HITOLO;
+  pinConfig.sense = (nrf_gpiote_polarity_t) NRF_GPIOTE_POLARITY_LOTOHI;
   pinConfig.pull = (nrf_gpio_pin_pull_t) GPIO_PIN_CNF_PULL_Pullup;
 
   nrfx_gpiote_in_init(PinMap::Cst816sIrq, &pinConfig, nrfx_gpiote_evt_handler);
@@ -204,9 +206,35 @@ void SystemTask::Work() {
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
   while (true) {
-    UpdateMotion();
-
+//    UpdateMotion();
+    SEGGER_RTT_LOCK();
+    while (SEGGER_RTT_HasKey() != 0){
+      char rttcmd = SEGGER_RTT_GetKey();
+      SEGGER_RTT_printf(0, "Got an RTT command\r\n");
+      switch(rttcmd){
+        case 'T':
+          touchPanel.RecvTouchInfo(true);
+          if (touchHandler.GetNewTouchInfo()) {
+            touchHandler.UpdateLvglTouchPoint();
+          }
+          ReloadIdleTimer();
+          displayApp.PushMessage(Pinetime::Applications::Display::Messages::TouchEvent);
+          break;
+        case 'U':
+          touchPanel.RecvTouchInfo(false);
+          if (touchHandler.GetNewTouchInfo()) {
+            touchHandler.UpdateLvglTouchPoint();
+          }
+          ReloadIdleTimer();
+          displayApp.PushMessage(Pinetime::Applications::Display::Messages::TouchEvent);
+          break;
+        default:
+          SEGGER_RTT_printf(0, "Unhandled rtt cmd: %c\r\n", rttcmd);
+      }
+    }
+    SEGGER_RTT_UNLOCK();
     uint8_t msg;
+    doNotGoToSleep = true;
     if (xQueueReceive(systemTasksMsgQueue, &msg, 100)) {
       Messages message = static_cast<Messages>(msg);
       switch (message) {
@@ -232,11 +260,11 @@ void SystemTask::Work() {
           }
 
           xTimerStart(dimTimer, 0);
-          spiNorFlash.Wakeup();
+//          spiNorFlash.Wakeup();
           lcd.Wakeup();
 
           displayApp.PushMessage(Pinetime::Applications::Display::Messages::GoToRunning);
-          heartRateApp.PushMessage(Pinetime::Applications::HeartRateTask::Messages::WakeUp);
+//          heartRateApp.PushMessage(Pinetime::Applications::HeartRateTask::Messages::WakeUp);
 
           if (!bleController.IsConnected())
             nimbleController.RestartFastAdv();
@@ -246,15 +274,15 @@ void SystemTask::Work() {
           isDimmed = false;
           break;
         case Messages::TouchWakeUp: {
-          if(touchHandler.GetNewTouchInfo()) {
-            auto gesture = touchHandler.GestureGet();
-            if (gesture != Pinetime::Drivers::Cst816S::Gestures::None and ((gesture == Pinetime::Drivers::Cst816S::Gestures::DoubleTap and
-                                settingsController.isWakeUpModeOn(Pinetime::Controllers::Settings::WakeUpMode::DoubleTap)) or
-                                (gesture == Pinetime::Drivers::Cst816S::Gestures::SingleTap and
-                                settingsController.isWakeUpModeOn(Pinetime::Controllers::Settings::WakeUpMode::SingleTap)))) {
-              GoToRunning();
-            }
-          }
+//          if(touchHandler.GetNewTouchInfo()) {
+//            auto gesture = touchHandler.GestureGet();
+//            if (gesture != Pinetime::Drivers::Cst816S::Gestures::None and ((gesture == Pinetime::Drivers::Cst816S::Gestures::DoubleTap and
+//                                settingsController.isWakeUpModeOn(Pinetime::Controllers::Settings::WakeUpMode::DoubleTap)) or
+//                                (gesture == Pinetime::Drivers::Cst816S::Gestures::SingleTap and
+//                                settingsController.isWakeUpModeOn(Pinetime::Controllers::Settings::WakeUpMode::SingleTap)))) {
+//              GoToRunning();
+//            }
+//          }
         } break;
         case Messages::GoToSleep:
           isGoingToSleep = true;
@@ -262,7 +290,7 @@ void SystemTask::Work() {
           xTimerStop(idleTimer, 0);
           xTimerStop(dimTimer, 0);
           displayApp.PushMessage(Pinetime::Applications::Display::Messages::GoToSleep);
-          heartRateApp.PushMessage(Pinetime::Applications::HeartRateTask::Messages::GoToSleep);
+//          heartRateApp.PushMessage(Pinetime::Applications::HeartRateTask::Messages::GoToSleep);
           break;
         case Messages::OnNewTime:
           ReloadIdleTimer();
@@ -312,11 +340,11 @@ void SystemTask::Work() {
           xTimerStart(dimTimer, 0);
           break;
         case Messages::OnTouchEvent:
-          if (touchHandler.GetNewTouchInfo()) {
-            touchHandler.UpdateLvglTouchPoint();
-          }
-          ReloadIdleTimer();
-          displayApp.PushMessage(Pinetime::Applications::Display::Messages::TouchEvent);
+//          if (touchHandler.GetNewTouchInfo()) {
+//            touchHandler.UpdateLvglTouchPoint();
+//          }
+//          ReloadIdleTimer();
+//          displayApp.PushMessage(Pinetime::Applications::Display::Messages::TouchEvent);
           break;
         case Messages::OnButtonEvent:
           ReloadIdleTimer();
@@ -326,7 +354,7 @@ void SystemTask::Work() {
           if (BootloaderVersion::IsValid()) {
             // First versions of the bootloader do not expose their version and cannot initialize the SPI NOR FLASH
             // if it's in sleep mode. Avoid bricked device by disabling sleep mode on these versions.
-            spiNorFlash.Sleep();
+//            spiNorFlash.Sleep();
           }
           lcd.Sleep();
           spi.Sleep();
@@ -379,7 +407,7 @@ void SystemTask::Work() {
     uint32_t systick_counter = nrf_rtc_counter_get(portNRF_RTC_REG);
     dateTimeController.UpdateTime(systick_counter);
     NoInit_BackUpTime = dateTimeController.CurrentDateTime();
-    if (!nrf_gpio_pin_read(PinMap::Button))
+    if (nrf_gpio_pin_read(PinMap::Button))
       watchdog.Kick();
   }
 // Clear diagnostic suppression
@@ -393,17 +421,17 @@ void SystemTask::UpdateMotion() {
     return;
 
   if (stepCounterMustBeReset) {
-    motionSensor.ResetStepCounter();
+//    motionSensor.ResetStepCounter();
     stepCounterMustBeReset = false;
   }
 
-  auto motionValues = motionSensor.Process();
+//  auto motionValues = motionSensor.Process();
 
-  motionController.IsSensorOk(motionSensor.IsOk());
-  motionController.Update(motionValues.x, motionValues.y, motionValues.z, motionValues.steps);
-  if (motionController.ShouldWakeUp(isSleeping)) {
-    GoToRunning();
-  }
+//  motionController.IsSensorOk(motionSensor.IsOk());
+//  motionController.Update(motionValues.x, motionValues.y, motionValues.z, motionValues.steps);
+//  if (motionController.ShouldWakeUp(isSleeping)) {
+//    GoToRunning();
+//  }
 }
 
 void SystemTask::OnButtonPushed() {

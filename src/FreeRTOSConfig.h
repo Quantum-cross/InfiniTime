@@ -198,6 +198,6 @@ extern uint32_t SystemCoreClock;
  * auto-corrections of RTOS tick might cause asserts. Setting configUSE_DISABLE_TICK_AUTO_CORRECTION_DEBUG to 1 will make RTC and RTOS go
  * out of sync but could be convenient for debugging.
  */
-#define configUSE_DISABLE_TICK_AUTO_CORRECTION_DEBUG 0
+#define configUSE_DISABLE_TICK_AUTO_CORRECTION_DEBUG 1
 
 #endif /* FREERTOS_CONFIG_H */

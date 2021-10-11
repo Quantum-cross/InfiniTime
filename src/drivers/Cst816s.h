@@ -24,16 +24,19 @@ namespace Pinetime {
         bool isValid = true;
       };
 
-      Cst816S(TwiMaster& twiMaster, uint8_t twiAddress);
+      Cst816S();
       Cst816S(const Cst816S&) = delete;
       Cst816S& operator=(const Cst816S&) = delete;
       Cst816S(Cst816S&&) = delete;
       Cst816S& operator=(Cst816S&&) = delete;
 
       void Init();
+      void RecvTouchInfo(bool);
       TouchInfos GetTouchInfo();
       void Sleep();
       void Wakeup();
+      
+      TouchInfos info;
 
     private:
       // Unused/Unavailable commented out
@@ -50,8 +53,8 @@ namespace Pinetime {
       //static constexpr uint8_t touchMiscIndex = 8;
 
       uint8_t touchData[7];
-      TwiMaster& twiMaster;
-      uint8_t twiAddress;
+//      TwiMaster& twiMaster;
+//      uint8_t twiAddress;
     };
 
   }

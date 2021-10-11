@@ -79,7 +79,7 @@ Pinetime::Drivers::SpiNorFlash spiNorFlash {flashSpi};
 // at ~390Khz with correct timings.
 static constexpr uint32_t MaxTwiFrequencyWithoutHardwareBug {0x06200000};
 Pinetime::Drivers::TwiMaster twiMaster {NRF_TWIM1, MaxTwiFrequencyWithoutHardwareBug, Pinetime::PinMap::TwiSda, Pinetime::PinMap::TwiScl};
-Pinetime::Drivers::Cst816S touchPanel {twiMaster, touchPanelTwiAddress};
+Pinetime::Drivers::Cst816S touchPanel {};
 #ifdef PINETIME_IS_RECOVERY
   #include "displayapp/DummyLittleVgl.h"
   #include "displayapp/DisplayAppRecovery.h"

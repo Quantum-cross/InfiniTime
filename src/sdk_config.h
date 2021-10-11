@@ -8120,15 +8120,15 @@
 // <e> NRF_LOG_ENABLED - nrf_log - Logger
 //==========================================================
 #ifndef NRF_LOG_ENABLED
-  #define NRF_LOG_ENABLED 0
+  #define NRF_LOG_ENABLED 1
 #endif
 
 #ifndef NRF_LOG_BACKEND_RTT_ENABLED
-  #define NRF_LOG_BACKEND_RTT_ENABLED 0
+  #define NRF_LOG_BACKEND_RTT_ENABLED 1
 #endif
 
 #ifndef NRF_LOG_BACKEND_SERIAL_USES_RTT
-  #define NRF_LOG_BACKEND_SERIAL_USES_RTT 0
+  #define NRF_LOG_BACKEND_SERIAL_USES_RTT 1
 #endif
 // <h> Log message pool - Configuration of log message pool
 
@@ -12438,17 +12438,17 @@
 // <i> or this value is actually used. It depends on which one is bigger.
 
 #ifndef SEGGER_RTT_CONFIG_BUFFER_SIZE_UP
-  #define SEGGER_RTT_CONFIG_BUFFER_SIZE_UP 512
+  #define SEGGER_RTT_CONFIG_BUFFER_SIZE_UP 1024
 #endif
 
 // <o> SEGGER_RTT_CONFIG_MAX_NUM_UP_BUFFERS - Maximum number of upstream buffers.
 #ifndef SEGGER_RTT_CONFIG_MAX_NUM_UP_BUFFERS
-  #define SEGGER_RTT_CONFIG_MAX_NUM_UP_BUFFERS 4
+  #define SEGGER_RTT_CONFIG_MAX_NUM_UP_BUFFERS 1
 #endif
 
 // <o> SEGGER_RTT_CONFIG_BUFFER_SIZE_DOWN - Size of downstream buffer.
 #ifndef SEGGER_RTT_CONFIG_BUFFER_SIZE_DOWN
-  #define SEGGER_RTT_CONFIG_BUFFER_SIZE_DOWN 16
+  #define SEGGER_RTT_CONFIG_BUFFER_SIZE_DOWN 128
 #endif
 
 // <o> SEGGER_RTT_CONFIG_MAX_NUM_DOWN_BUFFERS - Maximum number of downstream buffers.
@@ -12467,7 +12467,7 @@
 // <2=> BLOCK_IF_FIFO_FULL
 
 #ifndef SEGGER_RTT_CONFIG_DEFAULT_MODE
-  #define SEGGER_RTT_CONFIG_DEFAULT_MODE 0
+  #define SEGGER_RTT_CONFIG_DEFAULT_MODE 2
 #endif
 
 // </h>

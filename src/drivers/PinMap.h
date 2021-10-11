@@ -12,7 +12,7 @@ namespace Pinetime {
       // Pinetime
       static constexpr uint8_t Charging = 12;
       static constexpr uint8_t Cst816sReset = 10;
-      static constexpr uint8_t Button = 13;      
+      static constexpr uint8_t Button = BUTTON_1;
     #endif
 
     static constexpr uint8_t Cst816sIrq = 28;
