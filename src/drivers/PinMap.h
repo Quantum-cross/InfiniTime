@@ -1,4 +1,5 @@
 #pragma once
+#import "pca10100.h"
 
 namespace Pinetime {
   namespace PinMap {
