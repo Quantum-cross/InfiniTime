@@ -24,6 +24,7 @@
 #include "drivers/Hrs3300.h"
 #include "drivers/PinMap.h"
 #include "main.h"
+#include "BootErrors.h"
 
 
 #include <memory>
@@ -118,6 +119,8 @@ void SystemTask::Process(void* instance) {
 }
 
 void SystemTask::Work() {
+  BootErrors bootError = BootErrors::None;
+
   watchdog.Setup(7);
   watchdog.Start();
 //  NRF_LOG_INFO("Last reset reason : %s", Pinetime::Drivers::Watchdog::ResetReasonToString(watchdog.ResetReason()));
@@ -135,10 +138,11 @@ void SystemTask::Work() {
   lcd.Init();
 
   twiMaster.Init();
-  touchPanel.Init();
+  if (!touchPanel.Init()) {
+    bootError = BootErrors::TouchController;
+  }
   dateTimeController.Register(this);
   batteryController.Register(this);
-  batteryController.Update();
   motorController.Init();
 //  motionSensor.SoftReset();
   timerController.Register(this);
@@ -154,25 +158,28 @@ void SystemTask::Work() {
   settingsController.Init();
 
   displayApp.Register(this);
-  displayApp.Start();
+  displayApp.Start(bootError);
 
   heartRateSensor.Init();
   heartRateSensor.Disable();
   heartRateApp.Start();
-
+  
+  // Button
   nrf_gpio_cfg_sense_input(PinMap::Button, static_cast<nrf_gpio_pin_pull_t>GPIO_PIN_CNF_PULL_Pullup, static_cast<nrf_gpio_pin_sense_t>GPIO_PIN_CNF_SENSE_Low);
   nrf_gpio_cfg_output(15);
   nrf_gpio_pin_set(15);
 
   nrfx_gpiote_in_config_t pinConfig;
-  pinConfig.skip_gpio_setup = true;
+  pinConfig.skip_gpio_setup = false;
   pinConfig.hi_accuracy = false;
   pinConfig.is_watcher = false;
-  pinConfig.sense = (nrf_gpiote_polarity_t) NRF_GPIOTE_POLARITY_HITOLO;
+  pinConfig.sense = (nrf_gpiote_polarity_t) NRF_GPIOTE_POLARITY_TOGGLE;
   pinConfig.pull = (nrf_gpio_pin_pull_t) GPIO_PIN_CNF_PULL_Pullup;
 
   nrfx_gpiote_in_init(PinMap::Button, &pinConfig, nrfx_gpiote_evt_handler);
+  nrfx_gpiote_in_event_enable(PinMap::Button, true);
 
+  // Touchscreen
   nrf_gpio_cfg_sense_input(PinMap::Cst816sIrq, (nrf_gpio_pin_pull_t) GPIO_PIN_CNF_PULL_Pullup, (nrf_gpio_pin_sense_t) GPIO_PIN_CNF_SENSE_Low);
 
   pinConfig.skip_gpio_setup = true;
@@ -183,18 +190,16 @@ void SystemTask::Work() {
 
   nrfx_gpiote_in_init(PinMap::Cst816sIrq, &pinConfig, nrfx_gpiote_evt_handler);
 
+  // Power present
   pinConfig.sense = NRF_GPIOTE_POLARITY_TOGGLE;
   pinConfig.pull = NRF_GPIO_PIN_NOPULL;
   pinConfig.is_watcher = false;
   pinConfig.hi_accuracy = false;
-  pinConfig.skip_gpio_setup = true;
+  pinConfig.skip_gpio_setup = false;
   nrfx_gpiote_in_init(PinMap::PowerPresent, &pinConfig, nrfx_gpiote_evt_handler);
+  nrfx_gpiote_in_event_enable(PinMap::PowerPresent, true);
 
-  if (nrf_gpio_pin_read(PinMap::PowerPresent)) {
-    nrf_gpio_cfg_sense_input(PinMap::PowerPresent, NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_SENSE_LOW);
-  } else {
-    nrf_gpio_cfg_sense_input(PinMap::PowerPresent, NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_SENSE_HIGH);
-  }
+  batteryController.MeasureVoltage();
 
   idleTimer = xTimerCreate("idleTimer", pdMS_TO_TICKS(2000), pdFALSE, this, IdleTimerCallback);
   dimTimer = xTimerCreate("dimTimer", pdMS_TO_TICKS(settingsController.GetScreenTimeOut() - 2000), pdFALSE, this, DimTimerCallback);
@@ -373,18 +378,18 @@ void SystemTask::Work() {
           stepCounterMustBeReset = true;
           break;
         case Messages::OnChargingEvent:
-          batteryController.Update();
+          batteryController.ReadPowerState();
           motorController.RunForDuration(15);
+          ReloadIdleTimer();
+          if (isSleeping && !isWakingUp) {
+            GoToRunning();
+          }
           break;
         case Messages::MeasureBatteryTimerExpired:
-          sendBatteryNotification = true;
-          batteryController.Update();
+          batteryController.MeasureVoltage();
           break;
-        case Messages::BatteryMeasurementDone:
-          if (sendBatteryNotification) {
-            sendBatteryNotification = false;
-            nimbleController.NotifyBatteryLevel(batteryController.PercentRemaining());
-          }
+        case Messages::BatteryPercentageUpdated:
+          nimbleController.NotifyBatteryLevel(batteryController.PercentRemaining());
           break;
 
         default:

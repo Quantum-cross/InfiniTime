@@ -30,7 +30,7 @@ namespace Pinetime {
       Cst816S(Cst816S&&) = delete;
       Cst816S& operator=(Cst816S&&) = delete;
 
-      void Init();
+      bool Init();
       void RecvTouchInfo(bool);
       TouchInfos GetTouchInfo();
       void Sleep();
@@ -38,6 +38,15 @@ namespace Pinetime {
       
       TouchInfos info;
 
+      uint8_t GetChipId() const {
+        return chipId;
+      }
+      uint8_t GetVendorId() const {
+        return vendorId;
+      }
+      uint8_t GetFwVersion() const {
+        return fwVersion;
+      }
     private:
       // Unused/Unavailable commented out
       static constexpr uint8_t gestureIndex = 1;
@@ -55,6 +64,9 @@ namespace Pinetime {
       uint8_t touchData[7];
 //      TwiMaster& twiMaster;
 //      uint8_t twiAddress;
+      uint8_t chipId;
+      uint8_t vendorId;
+      uint8_t fwVersion;
     };
 
   }
